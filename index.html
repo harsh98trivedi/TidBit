@@ -1,150 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0d1220" />
-    <title>TidBit · Notes + Reminders</title>
 
-    <meta name="title" content="TidBit" />
-    <meta
-      name="description"
-      content="A Svelte ToDo with formatting & reminders.
-Create rich notes (rich‑text or Markdown), add tags & color labels, pin/complete items, and set browser reminders. Everything is stored locally so your notes persist until you clear your browser storage."
-    />
-    <meta
-      name="keywords"
-      content="tidbit, a svelte todo, rich notes richtext, markdown, tags  color labels, your notes, reminder, note taking, notes app, svelte notes app, cookie notes"
-    />
-    <meta
-      name="image"
-      content="https://github.com/harsh98trivedi/TidBit/raw/master/public/meta.jpg"
-    />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d1220" />
+  <title>TidBit · Notes + Reminders</title>
 
-    <!-- Open Graph general (Facebook, Pinterest) -->
-    <meta name="og:title" content="TidBit" />
-    <meta
-      name="og:description"
-      content="A Svelte ToDo with formatting & reminders.
-Create rich notes (rich‑text or Markdown), add tags & color labels, pin/complete items, and set browser reminders. Everything is stored locally so your notes persist until you clear your browser storage."
-    />
-    <meta
-      name="og:image"
-      content="https://github.com/harsh98trivedi/TidBit/raw/master/public/meta.jpg"
-    />
-    <meta name="og:image:alt" content="TidBit" />
-    <meta name="og:site_name" content="TidBit" />
+  </style>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-45C37D3GB5"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="TidBit" />
-    <meta
-      name="twitter:description"
-      content="A Svelte ToDo with formatting & reminders.
-Create rich notes (rich‑text or Markdown), add tags & color labels, pin/complete items, and set browser reminders. Everything is stored locally so your notes persist until you clear your browser storage."
-    />
-    <meta
-      name="twitter:image:src"
-      content="https://github.com/harsh98trivedi/TidBit/raw/master/public/meta.jpg"
-    />
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag('js', new Date());
 
-    <!-- Search Engine -->
-    <meta
-      name="description"
-      content="A Svelte ToDo with formatting & reminders.
-Create rich notes (rich‑text or Markdown), add tags & color labels, pin/complete items, and set browser reminders. Everything is stored locally so your notes persist until you clear your browser storage."
-    />
-    <meta
-      name="image"
-      content="https://github.com/harsh98trivedi/TidBit/raw/master/public/meta.jpg"
-    />
+    gtag('config', 'G-45C37D3GB5');
+  </script>
 
-    <!-- Schema.org for Google -->
-    <meta itemprop="name" content="TidBit" />
-    <meta
-      itemprop="description"
-      content="A Svelte ToDo with formatting & reminders.
-Create rich notes (rich‑text or Markdown), add tags & color labels, pin/complete items, and set browser reminders. Everything is stored locally so your notes persist until you clear your browser storage."
-    />
-    <meta
-      itemprop="image"
-      content="https://github.com/harsh98trivedi/TidBit/raw/master/public/meta.jpg"
-    />
+  <meta name="title" content="TidBit" />
+  <meta name="description"
+    content="A Svelte ToDo with formatting & reminders.
+Create rich notes (rich‑text or Markdown), add tags & color labels, pin/complete items, and set browser reminders. Everything is stored locally so your notes persist until you clear your browser storage." />
+  <meta name="keywords"
+    content="tidbit, a svelte todo, rich notes richtext, markdown, tags  color labels, your notes, reminder, note taking, notes app, svelte notes app, cookie notes" />
+  <meta name="image" content="https://github.com/harsh98trivedi/TidBit/raw/master/public/meta.jpg" />
 
-    <meta name="revisit-after" content="30 days" />
+  <!-- Open Graph general (Facebook, Pinterest) -->
+  <meta name="og:title" content="TidBit" />
+  <meta name="og:description"
+    content="A Svelte ToDo with formatting & reminders.
+Create rich notes (rich‑text or Markdown), add tags & color labels, pin/complete items, and set browser reminders. Everything is stored locally so your notes persist until you clear your browser storage." />
+  <meta name="og:image" content="https://github.com/harsh98trivedi/TidBit/raw/master/public/meta.jpg" />
+  <meta name="og:image:alt" content="TidBit" />
+  <meta name="og:site_name" content="TidBit" />
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="shortcut icon" href="tidbit.png" type="image/x-icon" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fira+Code:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="TidBit" />
+  <meta name="twitter:description"
+    content="A Svelte ToDo with formatting & reminders.
+Create rich notes (rich‑text or Markdown), add tags & color labels, pin/complete items, and set browser reminders. Everything is stored locally so your notes persist until you clear your browser storage." />
+  <meta name="twitter:image:src" content="https://github.com/harsh98trivedi/TidBit/raw/master/public/meta.jpg" />
 
-    <!-- Font Awesome (Solid) via jsDelivr -->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css"
-      crossorigin="anonymous"
-    />
-    <link
-      rel="preload"
-      as="font"
-      type="font/woff2"
-      crossorigin
-      href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/webfonts/fa-solid-900.woff2"
-    />
+  <!-- Search Engine -->
+  <meta name="description"
+    content="A Svelte ToDo with formatting & reminders.
+Create rich notes (rich‑text or Markdown), add tags & color labels, pin/complete items, and set browser reminders. Everything is stored locally so your notes persist until you clear your browser storage." />
+  <meta name="image" content="https://github.com/harsh98trivedi/TidBit/raw/master/public/meta.jpg" />
 
-    <!-- GSAP & marked -->
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"
-    ></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"
-    ></script>
+  <!-- Schema.org for Google -->
+  <meta itemprop="name" content="TidBit" />
+  <meta itemprop="description"
+    content="A Svelte ToDo with formatting & reminders.
+Create rich notes (rich‑text or Markdown), add tags & color labels, pin/complete items, and set browser reminders. Everything is stored locally so your notes persist until you clear your browser storage." />
+  <meta itemprop="image" content="https://github.com/harsh98trivedi/TidBit/raw/master/public/meta.jpg" />
 
-    <style>
-      html,
-      body,
-      #app {
-        height: 100%;
-        margin: 0;
-      }
+  <meta name="revisit-after" content="30 days" />
 
-      body {
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
-          sans-serif;
-        background: radial-gradient(
-          1200px 800px at 20% -10%,
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="shortcut icon" href="tidbit.png" type="image/x-icon" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fira+Code:wght@400;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Font Awesome (Solid) via jsDelivr -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css"
+    crossorigin="anonymous" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/webfonts/fa-solid-900.woff2" />
+
+  <!-- GSAP & marked -->
+  <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    html,
+    body,
+    #app {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
+        sans-serif;
+      background: radial-gradient(1200px 800px at 20% -10%,
           #16233f 0%,
           #0c1425 40%,
-          #070c16 100%
-        );
-        color: #e6ecf4;
-      }
+          #070c16 100%);
+      color: #e6ecf4;
+    }
 
-      .editor img,
-      .note img {
-        max-width: 100%;
-        height: auto;
-        border-radius: 10px;
-      }
+    .editor img,
+    .note img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 10px;
+    }
 
-      .hidden-file {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-      }
-    </style>
-  </head>
+    .hidden-file {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+    }
+  </style>
+</head>
 
-  <body>
-    <div id="app"></div>
-    <script type="module" src="src/main.js"></script>
-  </body>
+<body>
+  <div id="app"></div>
+  <script type="module" src="src/main.js"></script>
+</body>
+
 </html>
