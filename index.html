@@ -96,17 +96,6 @@ Create rich notes (rich‑text or Markdown), add tags & color labels, pin/comple
       href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/webfonts/fa-solid-900.woff2"
     />
 
-        </style>
-        <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-45C37D3GB5"></script>
-    <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', 'G-45C37D3GB5');
-    </script>
-
     <!-- GSAP & marked -->
     <script
       defer
@@ -124,6 +113,7 @@ Create rich notes (rich‑text or Markdown), add tags & color labels, pin/comple
         height: 100%;
         margin: 0;
       }
+
       body {
         font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
           sans-serif;
@@ -135,12 +125,14 @@ Create rich notes (rich‑text or Markdown), add tags & color labels, pin/comple
         );
         color: #e6ecf4;
       }
+
       .editor img,
       .note img {
         max-width: 100%;
         height: auto;
         border-radius: 10px;
       }
+
       .hidden-file {
         position: absolute;
         width: 1px;
@@ -150,9 +142,9 @@ Create rich notes (rich‑text or Markdown), add tags & color labels, pin/comple
       }
     </style>
   </head>
+
   <body>
     <div id="app"></div>
     <script type="module" src="src/main.js"></script>
   </body>
 </html>
-
