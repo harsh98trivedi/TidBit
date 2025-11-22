@@ -123,15 +123,13 @@
     window.addEventListener('load', () => {
       if (allowMotion && GS()) {
         const g = GS();
-        g.from('.brand',   { y: 8,  opacity: 0, duration: .45, ease: 'power2.out' });
-        g.from('.composer',{ y: 12, opacity: 0, duration: .45, ease: 'power2.out', delay: .05 });
-        g.from('.board',   { y: 12, opacity: 0, duration: .45, ease: 'power2.out', delay: .08 });
-        if (notes.length) g.from('.card', { y: 8, opacity: 0, duration: .32, stagger: .035, ease: 'power2.out', delay: .12 });
+        g.from('.brand',   { y: 8,  opacity: 0, duration: .45, ease: 'power2.out', clearProps: 'all' });
+        g.from('.composer',{ y: 12, opacity: 0, duration: .45, ease: 'power2.out', delay: .05, clearProps: 'all' });
+        g.from('.board',   { y: 12, opacity: 0, duration: .45, ease: 'power2.out', delay: .08, clearProps: 'all' });
+        // Removed card stagger animation to prevent stuttering
       }
     });
   });
-
-  /* —— Derived ——————————————————————————————— */
   $: allTags = Array.from(new Set(notes.flatMap(n => n.tags))).sort((a,b)=>a.localeCompare(b));
   $: filtered = notes
     .filter(n => activeTag ? n.tags.includes(activeTag) : true)
@@ -177,6 +175,7 @@
     editingId = n.id;
     e_title=n.title; e_type=n.type; e_color=n.color; e_tags=[...n.tags]; e_when=toLocal(n.remindAt);
     if (n.type==='md'){ e_md=n.content; e_html=''; } else { e_html=n.content; e_md=''; }
+    if (allowMotion && GS()) GS().set(`#n-${n.id}`, { clearProps: 'all' });
     await tick();
     if (e_type==='html' && e_editor){
   e_editor.innerHTML = e_html;
@@ -285,8 +284,172 @@ function exec(el, cmd, val = null) {
   function cancelTimer(id){ const h=timers.get(id); if(h){ clearTimeout(h); timers.delete(id); } }
 
   /* —— Hover micro ——————————————————————————————— */
-  function hoverUp(e){ if(!allowMotion || !GS()) return; GS().to(e.currentTarget,{ y:-2, scale:1.01, duration:.18, ease:'power2.out' }); }
-  function hoverDown(e){ if(!allowMotion || !GS()) return; GS().to(e.currentTarget,{ y:0,  scale:1.00, duration:.22, ease:'power2.out' }); }
+  function hoverUp(e, id){ if(!allowMotion || !GS() || editingId===id) return; GS().to(e.currentTarget,{ y:-2, scale:1.01, duration:.18, ease:'power2.out' }); }
+  function hoverDown(e, id){ if(!allowMotion || !GS() || editingId===id) return; GS().to(e.currentTarget,{ y:0,  scale:1.00, duration:.22, ease:'power2.out' }); }
+
+  /* —— Masonry Layout Action ——————————————————————————————— */
+  function masonry(node) {
+    const gap = 24;
+    const calc = () => {
+      const h = node.scrollHeight;
+      const span = Math.ceil(h + gap);
+      node.style.gridRowEnd = `span ${span}`;
+    };
+    const ro = new ResizeObserver(() => window.requestAnimationFrame(calc));
+    ro.observe(node);
+    
+    // Initial calc with delay to ensure DOM is ready
+    setTimeout(calc, 100);
+    
+    node.querySelectorAll('img').forEach(img => {
+      img.addEventListener('load', calc);
+    });
+    return {
+      destroy() { ro.disconnect(); }
+    };
+  }
+
+  /* —— Text Truncation ——————————————————————————————— */
+  function truncateHTML(html, baseLimit = 300) {
+    if (typeof document === 'undefined') return html;
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    
+    // More aggressive truncation based on element type
+    const limits = {
+      'H1': 80,
+      'H2': 100,
+      'H3': 120,
+      'H4': 150,
+      'H5': 180,
+      'H6': 200,
+      'BLOCKQUOTE': 200,
+      'P': 300,
+      'default': 300
+    };
+    
+    let totalChars = 0;
+    const maxTotal = 400; // Hard limit for entire card
+    
+    function truncateNode(node) {
+      if (totalChars >= maxTotal) {
+        node.remove();
+        return;
+      }
+      
+      if (node.nodeType === 3) { // Text node
+        const parent = node.parentElement;
+        const tagName = parent?.tagName || 'default';
+        const limit = limits[tagName] || limits['default'];
+        
+        const text = node.textContent;
+        const remaining = Math.min(limit, maxTotal - totalChars);
+        
+        if (text.length > remaining) {
+          node.textContent = text.substring(0, remaining) + '...';
+          totalChars = maxTotal;
+        } else {
+          totalChars += text.length;
+        }
+      } else if (node.nodeType === 1) { // Element node
+        const children = Array.from(node.childNodes);
+        for (const child of children) {
+          if (totalChars >= maxTotal) {
+            child.remove();
+          } else {
+            truncateNode(child);
+          }
+        }
+      }
+    }
+    
+    truncateNode(div);
+    return div.innerHTML;
+  }
+
+  /* —— Shortcuts ——————————————————————————————— */
+  function handleComposerKeydown(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      addNote();
+    }
+  }
+
+  function handleEditKeydown(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      saveEdit();
+    }
+  }
+
+  /* —— Export / Import ——————————————————————————————— */
+  function exportNotes() {
+    const dataStr = JSON.stringify(notes, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tidbit-notes-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  let importFileInput;
+  function triggerImport() {
+    importFileInput?.click();
+  }
+
+  function importNotes(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const imported = JSON.parse(e.target.result);
+        if (!Array.isArray(imported)) {
+          alert('Invalid JSON format. Expected an array of notes.');
+          return;
+        }
+        
+        // Validate and merge imported notes
+        const validNotes = imported.filter(n => n && typeof n === 'object' && n.id);
+        if (validNotes.length === 0) {
+          alert('No valid notes found in the file.');
+          return;
+        }
+        
+        // Ask user if they want to merge or replace
+        const shouldReplace = confirm(
+          `Found ${validNotes.length} note(s).\n\nClick OK to REPLACE all existing notes.\nClick Cancel to MERGE with existing notes.`
+        );
+        
+        if (shouldReplace) {
+          notes = validNotes;
+        } else {
+          // Merge: add imported notes that don't exist
+          const existingIds = new Set(notes.map(n => n.id));
+          const newNotes = validNotes.filter(n => !existingIds.has(n.id));
+          notes = [...notes, ...newNotes];
+        }
+        
+        save();
+        alert(`Successfully imported ${shouldReplace ? validNotes.length : validNotes.filter(n => !notes.some(existing => existing.id === n.id)).length} note(s)!`);
+      } catch (err) {
+        alert('Error parsing JSON file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; // Reset input
+  }
+
+  /* —— Title Truncation ——————————————————————————————— */
+  function truncateTitle(title, maxLength = 60) {
+    if (!title || title.length <= maxLength) return title;
+    return title.substring(0, maxLength) + '...';
+  }
 </script>
 
 <div class="page">
@@ -303,6 +466,13 @@ function exec(el, cmd, val = null) {
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         <input type="search" placeholder="Search title, content or tags…" bind:value={query} aria-label="Search notes" />
       </div>
+      <button class="btn ghost" on:click={exportNotes} title="Export notes as JSON">
+        <span class="hide-mobile">Export</span>
+      </button>
+      <button class="btn ghost" on:click={triggerImport} title="Import notes from JSON">
+        <span class="hide-mobile">Import</span>
+      </button>
+      <input type="file" accept=".json" bind:this={importFileInput} on:change={importNotes} style="display: none;" />
       <button class="btn ghost" on:click={testNotification} title="Test notifications">
         <i class="fa-solid fa-bell"></i>
       </button>
@@ -312,7 +482,7 @@ function exec(el, cmd, val = null) {
   <!-- Composer -->
   <section class="composer glass">
     <div class="row">
-      <input class="field title" placeholder="Title…" bind:value={c_title} aria-label="Title" />
+      <input class="field title" placeholder="Title…" bind:value={c_title} aria-label="Title" on:keydown={handleComposerKeydown} />
       <div class="mode">
         <button class="tab" class:active={c_type==='html'} type="button" on:click={()=>c_type='html'} title="Rich text"><i class="fa-solid fa-font"></i></button>
         <button class="tab" class:active={c_type==='md'}   type="button" on:click={()=>c_type='md'}   title="Markdown"><i class="fa-solid fa-code"></i></button>
@@ -343,7 +513,7 @@ function exec(el, cmd, val = null) {
         <button class="icon" type="button" title="Upload image" on:click={()=>openFile(c_file)}><i class="fa-solid fa-upload"></i></button>
         <input class="hidden-file" type="file" accept="image/*" bind:this={c_file} on:change={(e)=>insertImageFile(c_editor,e)} />
       </div>
-      <div class="editor" contenteditable="true" bind:this={c_editor} on:input={syncCHTML} spellcheck="true" aria-label="Note content (rich)"></div>
+      <div class="editor" contenteditable="true" bind:this={c_editor} on:input={syncCHTML} on:keydown={handleComposerKeydown} spellcheck="true" aria-label="Note content (rich)" role="textbox" tabindex="0"></div>
     {:else}
       <div class="toolbar" role="toolbar" aria-label="Markdown helpers">
         <button class="icon" type="button" title="Bold" on:click={()=>mdWrap('c','**','**')}><i class="fa-solid fa-bold"></i></button>
@@ -354,7 +524,7 @@ function exec(el, cmd, val = null) {
         <button class="icon" type="button" title="Quote" on:click={()=>mdWrap('c','> ','')}><i class="fa-solid fa-quote-right"></i></button>
         <button class="icon" type="button" title="List" on:click={()=>mdWrap('c','- ','')}><i class="fa-solid fa-list-ul"></i></button>
       </div>
-      <textarea class="mdarea" bind:value={c_md} placeholder="Write Markdown…" aria-label="Note content (markdown)"></textarea>
+      <textarea class="mdarea" bind:value={c_md} placeholder="Write Markdown…" aria-label="Note content (markdown)" on:keydown={handleComposerKeydown}></textarea>
     {/if}
 
     <div class="meta-row">
@@ -405,12 +575,20 @@ function exec(el, cmd, val = null) {
       <p class="empty">No notes match your filters.</p>
     {:else}
       <div class="masonry">
-        {#each filtered as n (n.id)}
-          <article id={"n-"+n.id} class="card" data-color={n.color} on:mouseenter={hoverUp} on:mouseleave={hoverDown}>
+        {#each filtered as n, i (n.id)}
+          <article 
+            id={"n-"+n.id} 
+            use:masonry 
+            class="card" 
+            class:editing={editingId === n.id} 
+            data-color={n.color} 
+            on:mouseenter={(e)=>hoverUp(e, n.id)} 
+            on:mouseleave={(e)=>hoverDown(e, n.id)}
+          >
             <header class="card-head">
               <div class="title-line">
                 <input type="checkbox" checked={n.done} on:change={()=>toggleDone(n)} aria-label="Mark as done" />
-                <h3 class:done={n.done}>{n.title}</h3>
+                <h3 class:done={n.done}>{truncateTitle(n.title)}</h3>
               </div>
               <div class="card-actions">
                 <button class="icon" title={n.pinned?'Unpin':'Pin'} on:click={()=>togglePin(n)}><i class="fa-solid fa-thumbtack"></i></button>
@@ -432,7 +610,7 @@ function exec(el, cmd, val = null) {
 
             {#if editingId === n.id}
               <div class="edit">
-                <input class="field title" placeholder="Title…" bind:value={e_title} />
+                <input class="field title" placeholder="Title…" bind:value={e_title} on:keydown={handleEditKeydown} />
 
                 <div class="row spread">
                   <div class="mode">
@@ -476,7 +654,7 @@ function exec(el, cmd, val = null) {
                     <button class="icon" type="button" title="Upload image" on:click={()=>openFile(e_file)}><i class="fa-solid fa-upload"></i></button>
                     <input class="hidden-file" type="file" accept="image/*" bind:this={e_file} on:change={(e)=>insertImageFile(e_editor,e)} />
                   </div>
-                  <div class="editor" contenteditable="true" bind:this={e_editor} on:input={syncEHTML} spellcheck="true"></div>
+                  <div class="editor" contenteditable="true" bind:this={e_editor} on:input={syncEHTML} on:keydown={handleEditKeydown} spellcheck="true" role="textbox" tabindex="0"></div>
                 {:else}
                   <div class="toolbar" role="toolbar" aria-label="Markdown helpers">
                     <button class="icon" type="button" title="Bold" on:click={()=>mdWrap('e','**','**')}><i class="fa-solid fa-bold"></i></button>
@@ -487,7 +665,7 @@ function exec(el, cmd, val = null) {
                     <button class="icon" type="button" title="Quote" on:click={()=>mdWrap('e','> ','')}><i class="fa-solid fa-quote-right"></i></button>
                     <button class="icon" type="button" title="List" on:click={()=>mdWrap('e','- ','')}><i class="fa-solid fa-list-ul"></i></button>
                   </div>
-                  <textarea class="mdarea" bind:value={e_md} placeholder="Write Markdown…"></textarea>
+                  <textarea class="mdarea" bind:value={e_md} placeholder="Write Markdown…" on:keydown={handleEditKeydown}></textarea>
                 {/if}
 
                 <div class="meta-row edit-grid">
@@ -519,7 +697,7 @@ function exec(el, cmd, val = null) {
               </div>
             {:else}
               <section class="content">
-                <div class="note">{@html renderHTML(n)}</div>
+                <div class="note">{@html truncateHTML(renderHTML(n))}</div>
                 {#if n.tags.length}
                   <div class="tagsline">
                     {#each n.tags as t}
@@ -535,14 +713,24 @@ function exec(el, cmd, val = null) {
     {/if}
   </section>
 
+  {#if editingId !== null}
+    <div class="backdrop" on:click={cancelEdit} role="button" tabindex="0" on:keydown={(e)=>e.key==='Escape'&&cancelEdit()}></div>
+  {/if}
+
   <footer class="foot">
     <p>Made with <span aria-label="love">❤️</span> by <a href="https://harsh98trivedi.github.io/" target="_blank" rel="noopener">Harsh Trivedi</a></p>
   </footer>
 </div>
 
 <style>
-  :global(*){ box-sizing: border-box; }
-  :global(html, body, #app){ height:100%; margin:0; }
+  :global(*){ box-sizing: border-box; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
+  :global(html, body, #app){ height:100%; margin:0; scroll-behavior: smooth; }
+
+  /* —— Scrollbar —— */
+  :global(::-webkit-scrollbar) { width: 10px; height: 10px; }
+  :global(::-webkit-scrollbar-track) { background: rgba(255,255,255,0.02); }
+  :global(::-webkit-scrollbar-thumb) { background: rgba(255,255,255,0.15); border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
+  :global(::-webkit-scrollbar-thumb:hover) { background-color: rgba(255,255,255,0.25); }
 
   .page{
     min-height:100vh;
@@ -552,7 +740,7 @@ function exec(el, cmd, val = null) {
     background:radial-gradient(1200px 800px at 20% -10%, #16233f 0%, #0c1425 40%, #070c16 100%);
     position:relative;
     z-index:1;
-    place-content: center;
+    place-content: start center;
   }
 
   .glass{
@@ -564,7 +752,8 @@ function exec(el, cmd, val = null) {
   }
 
   /* —— Header —— */
-  .head, .composer, .tags, .board, .foot { width:min(1200px,100%); margin-inline:auto; }
+  /* —— Header —— */
+  .head, .board, .foot, .composer, .tags { width: 100%; margin-inline: auto; }
   #board .empty{ text-align:center; }
 
   .head{
@@ -627,12 +816,12 @@ function exec(el, cmd, val = null) {
   .sep{ width:1px; height:24px; background:rgba(255,255,255,.15); align-self:center; }
 
   .editor{
-    min-height:140px; padding:12px; margin-top:8px; border-radius:12px;
+    min-height:10vmax; padding:12px; margin-top:8px; border-radius:12px;
     background:rgba(7,11,22,.85); border:1px solid rgba(255,255,255,.12); outline:none;
   }
   .editor:empty:before{ content:"Write your note…"; color:#8da2bb; }
   .mdarea{
-    width:100%; min-height:140px; padding:12px; margin-top:8px; border-radius:12px;
+    width:100%; min-height:15vmax; padding:12px; margin-top:8px; border-radius:12px; height: 20vmax;
     background:rgba(7,11,22,.85); border:1px solid rgba(255,255,255,.12); color:#e6ecf4; resize:vertical;
   }
 
@@ -688,19 +877,43 @@ function exec(el, cmd, val = null) {
   .chip.active{ background:#22d3ee; border-color:transparent; color:#061018; }
 
   /* —— Board / Cards —— */
-  .board{ width:min(1200px,100%); }
-  .masonry{ display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+  .board{ width: 100%; }
+  .masonry {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0 24px;
+    grid-auto-rows: 1px;
+    align-items: start;
+    min-height: 50vh; /* Prevent collapse */
+    padding-bottom: 40px; /* Space for footer */
+  }
   @media (max-width: 360px){
     .masonry{ grid-template-columns: 1fr; }
     .toolbar { justify-content: space-around;}
   }
 
   .card{
-    padding:12px; border-radius:14px;
+    box-sizing: border-box;
+    width: 100%;
+    height: fit-content;
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    padding: 20px; border-radius: 16px;
     border:1px solid rgba(255,255,255,.12);
     background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
     box-shadow:0 8px 20px rgba(0,0,0,.24);
     overflow:hidden;
+  }
+  .card:not(.editing) {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .card:not(.editing):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0,0,0,.35);
+  }
+  .card.editing {
+    cursor: default;
   }
   [data-color="mint"]  { background:linear-gradient(180deg, rgba(16,185,129,.18), rgba(16,185,129,.06)); }
   [data-color="sun"]   { background:linear-gradient(180deg, rgba(234,179,8,.22), rgba(234,179,8,.08)); }
@@ -708,6 +921,44 @@ function exec(el, cmd, val = null) {
   [data-color="lav"]   { background:linear-gradient(180deg, rgba(168,85,247,.20), rgba(168,85,247,.07)); }
   [data-color="sky"]   { background:linear-gradient(180deg, rgba(14,165,233,.20), rgba(14,165,233,.07)); }
   [data-color="slate"] { background:linear-gradient(180deg, rgba(100,116,139,.22), rgba(100,116,139,.09)); }
+
+  /* —— Custom Checkbox —— */
+  input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-radius: 6px;
+    background: rgba(255,255,255,.08);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+  input[type="checkbox"]:hover {
+    border-color: rgba(34,211,238,.6);
+    background: rgba(34,211,238,.1);
+  }
+  input[type="checkbox"]:checked {
+    background: linear-gradient(135deg, #22d3ee, #06b6d4);
+    border-color: #22d3ee;
+  }
+  input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid #061018;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  input[type="checkbox"]:focus-visible {
+    outline: 2px solid rgba(34,211,238,.5);
+    outline-offset: 2px;
+  }
 
   .card-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; flex-wrap:wrap; }
   .title-line{ display:flex; align-items:center; gap:8px; flex:1 1 auto; min-width:160px; }
@@ -720,14 +971,14 @@ function exec(el, cmd, val = null) {
   .card .icon.danger{ color:#ffd9d9; background:rgba(255,0,0,.06); border-color:rgba(255,0,0,.18); }
   .card .fa-thumbtack{ transform: rotate(25deg); }
 
-  .chips{ display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 0 24px; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; margin:5px 0 0 10px; }
   .chip.small{ padding:2px 8px; font-size:12px; }
 
-  .content .note{ margin:8px 0 0 24px; }
+  .content .note{ margin:8px 0 0 24px; word-break: break-word; overflow-wrap: break-word; }
   .tagsline{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 0 24px; }
 
   /* —— Footer —— */
-  .foot{ text-align:center; color:#9fb2c7; margin-top:12px; padding:10px 14px; }
+  .foot{ text-align:center; color:#9fb2c7; margin-top:40px; padding:20px 14px; position: relative; z-index: 0; }
   .foot a{ color:#22d3ee; text-decoration:none; }
 
   /* —— Accessibility skip link —— */
@@ -749,4 +1000,38 @@ function exec(el, cmd, val = null) {
     .chip{ font-size:12px; padding:5px 10px; }
     .toolbar { justify-content: space-around;}
   }
+
+  /* Hide text on mobile/tablet */
+  @media (max-width: 768px){
+    .hide-mobile{ display:none; }
+  }
+
+  /* —— Modal Edit (Google Keep style) —— */
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(15px);
+    z-index: 998;
+  }
+  .card.editing {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 95%;
+    height: 75%;
+    max-width: none;
+    max-height: 95vh;
+    z-index: 999;
+    overflow-y: auto;
+    margin: 0 !important;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.2);
+    animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: none !important;
+    will-change: auto !important;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes popIn { from { opacity: 0; transform: translate(-50%, -45%) scale(0.95); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 </style>
